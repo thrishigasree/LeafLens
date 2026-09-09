@@ -1,0 +1,46 @@
+Build a professional, production-quality web application called "CropSense" — an AI-powered plant health diagnostic tool that solves a real problem for small-scale farmers and greenhouse hobbyists.
+
+Problem this product solves (use as the core narrative on the landing page):
+Small-scale farmers and greenhouse hobbyists struggle to detect early signs of plant disease or pest infestations, leading to reduced crop yields. Manual inspection is time-consuming, and commercial agricultural drones or cameras are financially out of reach for small operations.
+
+Solution positioning:
+CropSense replaces expensive drones/hardware with something the user already owns — a phone or laptop camera — paired with AI image analysis to give instant, plain-language diagnosis of plant health issues. Position it as "a plant pathologist in your pocket": accessible and affordable for individuals, not enterprise farms.
+
+Brand & Visual Identity
+
+Calm, trustworthy, modern feel (Notion/Linear-level polish, not a generic template).
+Sage/muted green as primary color, warm off-white backgrounds, deep forest green for CTAs/headers, soft amber for "watch closely" states, soft red reserved for urgent alerts only.
+Clean geometric sans-serif headings, readable body font, rounded corners (16–20px), soft shadows, generous whitespace.
+Logo: leaf/sprout icon in a rounded badge next to "CropSense" wordmark, tagline "Plant health, made clear."
+
+Landing Page (public, SEO-optimized)
+
+Hero section with a headline addressing the pain point directly (e.g., "Catch plant disease before it spreads — no drone required"), subheadline on affordability/accessibility, CTA to sign up or try a scan.
+"The Problem" section — short stat-style callouts on manual-inspection time cost, commercial ag-tech cost, and yield loss from late detection.
+"How it works" — 3 steps: (1) Open the live camera or upload a photo, (2) AI analyzes for disease/pest markers, (3) Get a clear action plan.
+"Who it's for" — small-scale farmers, greenhouse hobbyists, home gardeners, with relatable scenarios.
+Sample report preview showing mock scan output before signup.
+Trust signals — confidence-score transparency and a disclaimer that it's not a replacement for expert diagnosis in severe cases.
+Proper semantic HTML, meta tags, alt text, fast load for real SEO indexing.
+Footer with About/Privacy/Contact links, favicon, and Open Graph preview image.
+
+App Pages (after login)
+
+Dashboard ("My Greenhouse") — welcome banner with local weather/growing conditions, a summary card tracking scan streaks/habit progress, and a "Routine" panel (morning watering, weekly plant scan, care reminders) with checkmarks and "Start" actions.
+Scan a Plant (with LIVE camera scanning) — two-panel layout:
+Left panel: On load, request camera access and show a live video feed in a rounded viewfinder with animated corner brackets/scan-line overlay (barcode-scanner style) to signal active AI scanning. Show real-time framing guidance text (e.g., "Center the leaf in frame," "Hold steady," "Move closer"). Include a large circular "Capture" button (camera-app style) to freeze and submit the frame, plus an "Upload instead" fallback link/drag-and-drop zone (JPG/PNG/WEBP) for users without camera access or on desktop. Include a plant-type dropdown and optional notes field ("anything else we should know?"). Handle camera permission errors gracefully with a clear message and fallback to upload.
+Right panel: Empty state ("Your plant report will appear here") previewing the three result tabs (Visual Clues / Action Plan / Prevention Tips); after capture, show an "analyzing" loading animation before transitioning to the report.
+Scan Report (result state) — diagnosis name, confidence score %, severity badge (Healthy / Watch Closely / Urgent), the captured/annotated image, and three tabs with realistic plain-language content (Visual Clues, Action Plan, Prevention Tips).
+Scan History — table with columns Plant, Finding, Date, color-coded Status pill (Healthy / Watch Closely / Urgent), clickable rows leading to full report, and a "+ New Scan" button top-right.
+Header — logo/brand top-left, "AI assistant online" status indicator, notification bell, account menu (avatar + name + dropdown) top-right.
+
+Functional Requirements
+
+Fully responsive, mobile-first — on mobile the scan page should feel like a native camera app; on desktop, like a webcam-based scanner.
+Realistic mock data throughout (no lorem ipsum) — real diagnosis names like "Early Blight," "Powdery Mildew," "Aphid Infestation," with genuine agronomic advice.
+Accessible: proper color contrast, keyboard navigation, ARIA labels.
+Clean, componentized code (reusable Card, Badge, Button, Table, Modal components).
+Onboarding tooltip/empty state for first-time users ("New to plant scans? Use a close-up photo in natural light").
+No placeholder "TODO" text anywhere — the site should look fully demo-ready.
+
+Make the entire experience feel like a genuine, thoughtfully designed answer to an underserved problem — affordable, accessible plant diagnostics for people priced out of commercial ag-tech — not a generic AI-generated dashboard template.
