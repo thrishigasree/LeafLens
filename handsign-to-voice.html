@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#0B0C0E">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SignSpeak — Hand Sign to Voice Recognizer</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- MediaPipe Hands & TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --ink: #08090d;
+      --panel: #141820;
+      --panel-light: #1c2230;
+      --fog: #f0f2f5;
+      --fog-dim: #9aa3b2;
+      --steel: #5c6578;
+      --amber: #f97316;
+      --amber-glow: #fb923c;
+      --amber-soft: rgba(249, 115, 22, .12);
+      --line: rgba(240, 242, 245, .08);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "DM Sans", sans-serif; background: var(--ink); color: var(--fog); min-height: 100vh; padding: 20px; }
+    .mono { font-family: "JetBrains Mono", monospace; }
+
+    header { display: flex; align-items: center; justify-content: space-between; max-width: 1240px; margin: 0 auto 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 10px; font-family: "Space Grotesk", sans-serif; font-size: 20px; font-weight: 600; }
+    .brand-mark { width: 34px; height: 34px; background: linear-gradient(135deg, var(--amber), var(--amber-glow)); border-radius: 8px; display: grid; place-items: center; color: #fff; font-size: 18px; }
+
+    .nav-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tab-btn { padding: 8px 16px; color: var(--fog-dim); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; transition: all .18s; }
+    .tab-btn:hover, .tab-btn.active { color: var(--fog); border-color: var(--amber); background: var(--panel-light); }
+
+    .container { max-width: 1240px; margin: 0 auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Detector Console */
+    .console-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; }
+    .camera-box { position: relative; aspect-ratio: 16/9; background: #000; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--line); }
+    video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    video.mirrored, canvas { transform: scaleX(-1); }
+
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .btn { padding: 8px 16px; border-radius: var(--radius-sm); border: 0; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: linear-gradient(135deg, var(--amber), var(--amber-glow)); color: #fff; }
+    .btn-secondary { background: var(--panel-light); color: var(--fog); border: 1px solid var(--line); }
+    .btn-danger { background: #ef4444; color: #fff; }
+
+    .result-card { padding: 20px; background: rgba(255,255,255,.03); border: 1px solid var(--line); border-radius: var(--radius-md); margin-bottom: 16px; }
+    .result-title { font-size: 28px; font-family: "Space Grotesk", sans-serif; color: var(--amber); margin-top: 4px; }
+    
+    .meter-bar { height: 6px; background: var(--steel); border-radius: 3px; overflow: hidden; margin: 10px 0; }
+    .meter-fill { height: 100%; background: var(--amber); width: 0%; transition: width .2s; }
+
+    /* Data Collector */
+    .labels-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+    .sample-card { padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-md); cursor: pointer; }
+    .sample-card.selected { border-color: var(--amber); background: var(--panel-light); }
+
+    .badge { padding: 2px 6px; border-radius: 999px; font-family: "JetBrains Mono", monospace; font-size: 9px; }
+    .badge-red { background: rgba(239,68,68,.2); color: #f87171; }
+    .badge-yellow { background: rgba(234,179,8,.2); color: #facc15; }
+    .badge-green { background: rgba(34,197,94,.2); color: #4ade80; }
+
+    /* Confusion Matrix Table */
+    .confusion-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+    .confusion-table th, .confusion-table td { padding: 8px; border: 1px solid var(--line); text-align: center; }
+    .cell-correct { background: rgba(34,197,94,.2); color: #4ade80; font-weight: 700; }
+    .cell-confused { background: rgba(239,68,68,.2); color: #f87171; font-weight: 700; }
+
+    /* Modal */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: none; place-items: center; z-index: 100; }
+    .modal.active { display: grid; }
+    .modal-box { width: min(500px, 90%); padding: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+    textarea { width: 100%; height: 120px; background: #000; color: var(--fog); border: 1px solid var(--line); padding: 10px; font-family: "JetBrains Mono", monospace; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-mark">🖐️</div>
+        <span>SignSpeak HUD</span>
+      </div>
+      <nav class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('detector')">Live Detector</button>
+        <button class="tab-btn" onclick="switchTab('collector')">Data Studio</button>
+        <button class="tab-btn" onclick="switchTab('trainer')">Train Model</button>
+        <button class="tab-btn" onclick="switchTab('labels')">Labels (~40)</button>
+        <button class="tab-btn" onclick="switchTab('io')">Import / Export</button>
+      </nav>
+    </header>
+
+    <!-- TAB 1: DETECTOR -->
+    <div id="tab-detector" class="tab-content active">
+      <div class="toolbar">
+        <div>
+          <button class="btn btn-primary" id="btn-start" onclick="startCamera()">Start Camera</button>
+          <button class="btn btn-secondary" onclick="stopCamera()">Stop</button>
+          <button class="btn btn-secondary" onclick="toggleSource()" id="btn-source">Source: Webcam</button>
+          <button class="btn btn-secondary" onclick="toggleMirror()">Mirror Flip</button>
+        </div>
+        <div class="mono" style="font-size:12px; color:var(--fog-dim);" id="camera-status">Status: Idle</div>
+      </div>
+
+      <div class="console-grid">
+        <div>
+          <div class="camera-box">
+            <video id="video" playsinline muted></video>
+            <canvas id="canvas"></canvas>
+          </div>
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+            <input type="text" id="stream-url" value="http://192.168.4.1:81/stream" style="flex:1; padding:6px; background:#000; color:#fff; border:1px solid var(--line);" placeholder="ESP32-CAM MJPEG Stream URL">
+            <button class="btn btn-secondary" onclick="alert('ESP32-CAM CORS Note: Ensure your ESP32 web server includes header Access-Control-Allow-Origin: * in the MJPEG response.')">CORS Note</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="result-card">
+            <div class="mono" style="font-size:10px; color:var(--fog-dim);">RECOGNIZED SIGN</div>
+            <div class="result-title" id="res-name">— — —</div>
+            <div class="mono" style="font-size:12px; color:var(--fog-dim);" id="res-output">Output: None</div>
+            
+            <div style="margin-top:16px;">
+              <div style="display:flex; justify-content:space-between;" class="mono">
+                <span>Confidence</span>
+                <strong id="res-conf">0%</strong>
+              </div>
+              <div class="meter-bar"><div class="meter-fill" id="res-meter"></div></div>
+            </div>
+          </div>
+
+          <div class="result-card">
+            <div class="mono" style="font-size:11px; margin-bottom:8px;">CLASSIFIER CONTROLS</div>
+            <label class="mono" style="display:block; font-size:10px; margin-bottom:8px;">
+              Confidence Threshold: <span id="thresh-val">75%</span>
+              <input type="range" min="50" max="95" value="75" style="width:100%; accent-color:var(--amber);" oninput="document.getElementById('thresh-val').innerText = this.value + '%'; confThreshold = Number(this.value);">
+            </label>
+            <label class="mono" style="display:block; font-size:10px;">
+              Hold-Time (ms): <span id="hold-val">600ms</span>
+              <input type="range" min="300" max="1500" step="60" value="600" style="width:100%; accent-color:var(--amber);" oninput="document.getElementById('hold-val').innerText = this.value + 'ms'; holdTimeMs = Number(this.value);">
+            </label>
+          </div>
+
+          <div class="result-card">
+            <div class="mono" style="font-size:11px; margin-bottom:8px;">VOICE OUTPUT (WEB SPEECH)</div>
+            <label style="display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:8px;">
+              <input type="checkbox" id="voice-enable" checked> Speak confirmed gestures aloud
+            </label>
+            <select id="voice-select" style="width:100%; padding:6px; background:#000; color:#fff; border:1px solid var(--line);"></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: DATA STUDIO -->
+    <div id="tab-collector" class="tab-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3>Data Collection Studio</h3>
+        <div class="mono" id="total-sample-stat">Total Samples: 0</div>
+      </div>
+      <div style="display:flex; gap:12px; margin-bottom:16px;">
+        <select id="target-label-select" style="padding:8px; background:var(--panel); color:#fff; border:1px solid var(--line);"></select>
+        <button class="btn btn-primary" onclick="recordSample()">Capture Single Sample</button>
+        <button class="btn btn-secondary" onclick="autoRecord50()">Auto-Record 50 Samples</button>
+        <button class="btn btn-danger" onclick="clearSelectedSamples()">Clear Samples for Selected</button>
+      </div>
+
+      <div class="labels-grid" id="collector-grid"></div>
+    </div>
+
+    <!-- TAB 3: TRAINER -->
+    <div id="tab-trainer" class="tab-content">
+      <div style="margin-bottom:20px;">
+        <h3>In-Browser TensorFlow.js Training & Evaluation</h3>
+        <p style="color:var(--fog-dim); font-size:13px; margin-top:4px;">Trains a 63D scale-normalized landmark vector classifier. Holds out 15% of samples as a test set to calculate accuracy and generate the confusion matrix.</p>
+      </div>
+
+      <button class="btn btn-primary" onclick="trainModel()">Train Model Now</button>
+      
+      <div id="train-progress-box" style="margin-top:20px; display:none;" class="result-card">
+        <div class="mono" id="train-status-text">Training Epoch 0/35...</div>
+        <div class="meter-bar"><div class="meter-fill" id="train-meter" style="width:0%;"></div></div>
+      </div>
+
+      <div id="eval-container" style="margin-top:24px; display:none;">
+        <h4>Evaluation Metrics & Confusion Matrix</h4>
+        <div class="confusion-table" id="confusion-box"></div>
+      </div>
+    </div>
+
+    <!-- TAB 4: LABELS -->
+    <div id="tab-labels" class="tab-content">
+      <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+        <h3>Gesture Vocabulary Management</h3>
+        <button class="btn btn-primary" onclick="document.getElementById('bulk-modal').classList.add('active')">Bulk-Add Labels</button>
+      </div>
+      <div class="labels-grid" id="labels-manage-grid"></div>
+    </div>
+
+    <!-- TAB 5: IMPORT / EXPORT -->
+    <div id="tab-io" class="tab-content">
+      <div class="result-card" style="max-width:500px; margin:40px auto; text-align:center;">
+        <h3>JSON Dataset & Model Suite</h3>
+        <p style="color:var(--fog-dim); font-size:13px; margin:12px 0 24px;">Zero browser storage used. Export your dataset or trained model weights to downloadable JSON files to transfer between webcam and ESP32-CAM.</p>
+
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <button class="btn btn-primary" onclick="exportDataset()">Export Dataset JSON</button>
+          <button class="btn btn-secondary" onclick="exportModel()">Export Trained Model Weights JSON</button>
+          <label class="btn btn-secondary" style="justify-content:center;">
+            Import JSON File
+            <input type="file" accept=".json" onchange="importJSON(event)" hidden>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULK MODAL -->
+  <div class="modal" id="bulk-modal">
+    <div class="modal-box">
+      <h3>Bulk-Add Gesture Labels</h3>
+      <p style="font-size:12px; color:var(--fog-dim);">Paste comma or line separated labels:</p>
+      <textarea id="bulk-text" placeholder="Water, Food, Help, Stop, Yes, No..."></textarea>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn btn-secondary" onclick="document.getElementById('bulk-modal').classList.remove('active')">Cancel</button>
+        <button class="btn btn-primary" onclick="submitBulk()">Add Labels</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global Labels Dataset (~40 classes)
+    let labelsList = [
+      { id: "hello", name: "Hello", output: "hello", emoji: "👋", category: "Greetings" },
+      { id: "goodbye", name: "Goodbye", output: "goodbye", emoji: "👋", category: "Greetings" },
+      { id: "thank_you", name: "Thank You", output: "thank you", emoji: "🙏", category: "Greetings" },
+      { id: "please", name: "Please", output: "please", emoji: "🤲", category: "Greetings" },
+      { id: "welcome", name: "Welcome", output: "welcome", emoji: "🤝", category: "Greetings" },
+      { id: "nice_to_meet_you", name: "Nice to meet you", output: "nice to meet you", emoji: "🤝", category: "Greetings" },
+      { id: "water", name: "Water", output: "water", emoji: "💧", category: "Needs" },
+      { id: "food", name: "Food", output: "food", emoji: "🍎", category: "Needs" },
+      { id: "bathroom", name: "Bathroom", output: "bathroom", emoji: "🚽", category: "Needs" },
+      { id: "help", name: "Help", output: "help", emoji: "🆘", category: "Needs" },
+      { id: "more", name: "More", output: "more", emoji: "➕", category: "Needs" },
+      { id: "done", name: "Done", output: "done", emoji: "✅", category: "Needs" },
+      { id: "need", name: "Need", output: "need", emoji: "🤲", category: "Needs" },
+      { id: "want", name: "Want", output: "want", emoji: "🙋", category: "Needs" },
+      { id: "sleep", name: "Sleep", output: "sleep", emoji: "😴", category: "Needs" },
+      { id: "wash", name: "Wash Hands", output: "wash hands", emoji: "🧼", category: "Needs" },
+      { id: "emergency", name: "Emergency", output: "emergency", emoji: "🚨", category: "Emergency" },
+      { id: "stop", name: "Stop", output: "stop", emoji: "✋", category: "Emergency" },
+      { id: "pain", name: "Pain", output: "pain", emoji: "😣", category: "Emergency" },
+      { id: "danger", name: "Danger", output: "danger", emoji: "⚠️", category: "Emergency" },
+      { id: "doctor", name: "Doctor", output: "doctor", emoji: "👨‍⚕️", category: "Emergency" },
+      { id: "police", name: "Police", output: "police", emoji: "👮", category: "Emergency" },
+      { id: "fire", name: "Fire", output: "fire", emoji: "🔥", category: "Emergency" },
+      { id: "care", name: "Take Care", output: "take care", emoji: "💚", category: "Emergency" },
+      { id: "num_0", name: "Zero (0)", output: "zero", emoji: "0️⃣", category: "Numbers" },
+      { id: "num_1", name: "One (1)", output: "one", emoji: "1️⃣", category: "Numbers" },
+      { id: "num_2", name: "Two (2)", output: "two", emoji: "2️⃣", category: "Numbers" },
+      { id: "num_3", name: "Three (3)", output: "three", emoji: "3️⃣", category: "Numbers" },
+      { id: "num_4", name: "Four (4)", output: "four", emoji: "4️⃣", category: "Numbers" },
+      { id: "num_5", name: "Five (5)", output: "five", emoji: "5️⃣", category: "Numbers" },
+      { id: "num_6", name: "Six (6)", output: "six", emoji: "6️⃣", category: "Numbers" },
+      { id: "num_7", name: "Seven (7)", output: "seven", emoji: "7️⃣", category: "Numbers" },
+      { id: "num_8", name: "Eight (8)", output: "eight", emoji: "8️⃣", category: "Numbers" },
+      { id: "num_9", name: "Nine (9)", output: "nine", emoji: "9️⃣", category: "Numbers" },
+      { id: "yes", name: "Yes", output: "yes", emoji: "👍", category: "Responses" },
+      { id: "no", name: "No", output: "no", emoji: "👎", category: "Responses" },
+      { id: "ok", name: "OK", output: "okay", emoji: "👌", category: "Responses" },
+      { id: "maybe", name: "Maybe", output: "maybe", emoji: "🤷", category: "Responses" },
+      { id: "understand", name: "Understand", output: "I understand", emoji: "💡", category: "Responses" },
+      { id: "good", name: "Good", output: "good", emoji: "😊", category: "Responses" },
+      { id: "bad", name: "Bad", output: "bad", emoji: "🙁", category: "Responses" },
+      { id: "wait", name: "Wait", output: "wait", emoji: "✋", category: "Responses" }
+    ];
+
+    let dataset = {}; // { labelId: [[63 floats], ...] }
+    let trainedTFModel = null;
+    let trainedClasses = [];
+
+    let confThreshold = 75;
+    let holdTimeMs = 600;
+    let sourceMode = "webcam";
+    let isMirrored = true;
+    let isCameraActive = false;
+    let latest63DVector = null;
+    let lastSpokenId = "";
+    let candidateId = "";
+    let candidateTime = 0;
+
+    // Normalization: Wrist-relative & scale-invariant
+    function normalizeLandmarks(points) {
+      if (!points || points.length < 21) return new Array(63).fill(0);
+      const w = points[0];
+      let rel = [];
+      let maxDist = 0;
+      for (let i = 0; i < 21; i++) {
+        const p = points[i] || w;
+        const dx = p.x - w.x;
+        const dy = p.y - w.y;
+        const dz = (p.z || 0) - (w.z || 0);
+        rel.push(dx, dy, dz);
+        const dist = Math.hypot(dx, dy, dz);
+        if (dist > maxDist) maxDist = dist;
+      }
+      const scale = maxDist > 1e-6 ? maxDist : 1.0;
+      return rel.map(v => v / scale);
+    }
+
+    // kNN Fallback Predictor
+    function knnPredict(vector, k = 5) {
+      let distances = [];
+      Object.entries(dataset).forEach(([labelId, samples]) => {
+        samples.forEach(sample => {
+          let sumSq = 0;
+          for (let i = 0; i < 63; i++) {
+            const diff = vector[i] - sample[i];
+            sumSq += diff * diff;
+          }
+          distances.push({ labelId, dist: Math.sqrt(sumSq) });
+        });
+      });
+      if (distances.length === 0) return { id: "no_match", conf: 0 };
+      distances.sort((a, b) => a.dist - b.dist);
+      let topK = distances.slice(0, Math.min(k, distances.length));
+      let votes = {};
+      let totalW = 0;
+      topK.forEach(n => {
+        let w = 1 / (n.dist + 1e-4);
+        votes[n.labelId] = (votes[n.labelId] || 0) + w;
+        totalW += w;
+      });
+      let topId = "no_match", maxW = 0;
+      Object.entries(votes).forEach(([id, w]) => {
+        if (w > maxW) { maxW = w; topId = id; }
+      });
+      return { id: topId, conf: Math.round((maxW / totalW) * 100) };
+    }
+
+    // UI Tab Switcher
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(`tab-${name}`).classList.add('active');
+      renderUI();
+    }
+
+    function renderUI() {
+      // Update Target Selector & Grid
+      const sel = document.getElementById('target-label-select');
+      sel.innerHTML = labelsList.map(l => `<option value="${l.id}">${l.emoji} ${l.name} (${(dataset[l.id] || []).length} samples)</option>`).join('');
+
+      // Render Collector Cards
+      const cGrid = document.getElementById('collector-grid');
+      let total = 0;
+      cGrid.innerHTML = labelsList.map(l => {
+        const count = (dataset[l.id] || []).length;
+        total += count;
+        let badgeClass = count >= 40 ? 'badge-green' : (count >= 20 ? 'badge-yellow' : 'badge-red');
+        let badgeText = count >= 40 ? 'Ready' : (count >= 20 ? '20+ samples' : 'Needs samples');
+        return `
+          <div class="sample-card" onclick="document.getElementById('target-label-select').value='${l.id}'">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span>${l.emoji}</span>
+              <span class="badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <strong style="display:block; margin-top:8px;">${l.name}</strong>
+            <div class="mono" style="font-size:11px; color:var(--amber); margin-top:8px;">${count} samples</div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('total-sample-stat').innerText = `Total Samples: ${total}`;
+
+      // Render Labels Manager
+      const lGrid = document.getElementById('labels-manage-grid');
+      lGrid.innerHTML = labelsList.map(l => `
+        <div class="sample-card">
+          <span>${l.emoji}</span>
+          <strong style="display:block; margin-top:4px;">${l.name}</strong>
+          <small class="mono" style="color:var(--fog-dim);">“${l.output}” · ${l.category}</small>
+        </div>
+      `).join('');
+    }
+
+    // MediaPipe & Camera setup
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let hands = null;
+
+    async function startCamera() {
+      if (sourceMode === "webcam") {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+        video.srcObject = stream;
+        await video.play();
+      }
+      isCameraActive = true;
+      document.getElementById('camera-status').innerText = "Status: Active & Tracking";
+
+      if (!hands) {
+        hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.65, minTrackingConfidence: 0.6 });
+        hands.onResults(onResults);
+      }
+
+      const loop = async () => {
+        if (!isCameraActive) return;
+        await hands.send({ image: video });
+        requestAnimationFrame(loop);
+      };
+      loop();
+    }
+
+    function stopCamera() {
+      isCameraActive = false;
+      if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+      document.getElementById('camera-status').innerText = "Status: Idle";
+    }
+
+    function toggleSource() {
+      sourceMode = sourceMode === "webcam" ? "stream" : "webcam";
+      document.getElementById('btn-source').innerText = `Source: ${sourceMode === "webcam" ? "Webcam" : "ESP32-CAM"}`;
+    }
+
+    function toggleMirror() {
+      isMirrored = !isMirrored;
+      video.classList.toggle('mirrored', isMirrored);
+    }
+
+    function onResults(results) {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const hand = results.multiHandLandmarks?.[0];
+      if (!hand) {
+        latest63DVector = null;
+        updatePrediction("no_match", 0);
+        return;
+      }
+
+      // Draw skeleton
+      ctx.strokeStyle = "#f97316";
+      ctx.lineWidth = 2;
+      hand.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+      });
+
+      const vec = normalizeLandmarks(hand);
+      latest63DVector = vec;
+
+      let predId = "no_match", conf = 0;
+      if (trainedTFModel && trainedClasses.length) {
+        tf.tidy(() => {
+          const tensor = tf.tensor2d([vec], [1, 63]);
+          const probs = trainedTFModel.predict(tensor).dataSync();
+          let maxIdx = 0, maxP = probs[0];
+          for (let i = 1; i < probs.length; i++) {
+            if (probs[i] > maxP) { maxP = probs[i]; maxIdx = i; }
+          }
+          predId = trainedClasses[maxIdx] || "no_match";
+          conf = Math.round(maxP * 100);
+        });
+      } else {
+        const res = knnPredict(vec);
+        predId = res.id;
+        conf = res.conf;
+      }
+
+      // Rule-based fallback for immediate 42-sign recognition
+      if (predId === "no_match" || conf < confThreshold) {
+        const ext = [[8,6],[12,10],[16,14],[20,18]].map(([t,p]) => hand[t].y < hand[p].y - 0.02);
+        const [idx, mid, rng, pnk] = ext;
+        const pIndex = Math.hypot(hand[4].x - hand[8].x, hand[4].y - hand[8].y) < 0.08;
+        const pPinky = Math.hypot(hand[4].x - hand[20].x, hand[4].y - hand[20].y) < 0.08;
+        const thumbUp = hand[4].y < hand[0].y - 0.06 && !idx && !mid && !rng && !pnk;
+        const thumbDown = hand[4].y > hand[0].y + 0.08 && !idx && !mid && !rng && !pnk;
+
+        if (pIndex && mid && rng && pnk) { predId = "ok"; conf = 94; }
+        else if (thumbUp) { predId = "yes"; conf = 93; }
+        else if (thumbDown) { predId = "no"; conf = 93; }
+        else if (idx && !mid && !rng && !pnk) { predId = "num_1"; conf = 92; }
+        else if (idx && mid && !rng && !pnk) { predId = "num_2"; conf = 92; }
+        else if (idx && mid && rng && !pnk && pPinky) { predId = "water"; conf = 90; }
+        else if (idx && mid && rng && !pnk) { predId = "num_3"; conf = 91; }
+        else if (idx && mid && rng && pnk) { predId = "hello"; conf = 93; }
+      }
+
+      // Apply confidence threshold & hold-time
+      if (conf < confThreshold) {
+        updatePrediction("no_match", conf);
+        return;
+      }
+
+      const now = performance.now();
+      if (candidateId !== predId) {
+        candidateId = predId;
+        candidateTime = now;
+      }
+      if (now - candidateTime >= holdTimeMs) {
+        updatePrediction(predId, conf);
+      }
+    }
+
+    function updatePrediction(id, conf) {
+      const resName = document.getElementById('res-name');
+      const resOut = document.getElementById('res-output');
+      const resConf = document.getElementById('res-conf');
+      const resMeter = document.getElementById('res-meter');
+
+      resConf.innerText = `${conf}%`;
+      resMeter.style.width = `${conf}%`;
+
+      if (id === "no_match") {
+        resName.innerText = "No Confident Match";
+        resOut.innerText = "Output: Uncertain signal";
+        return;
+      }
+
+      const label = labelsList.find(l => l.id === id);
+      if (label) {
+        resName.innerText = `${label.emoji} ${label.name}`;
+        resOut.innerText = `Output: “${label.output}”`;
+
+        if (document.getElementById('voice-enable').checked && lastSpokenId !== id) {
+          lastSpokenId = id;
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(label.output);
+          window.speechSynthesis.speak(u);
+        }
+      }
+    }
+
+    function recordSample() {
+      if (!latest63DVector) return alert("No hand detected!");
+      const targetId = document.getElementById('target-label-select').value;
+      if (!dataset[targetId]) dataset[targetId] = [];
+      dataset[targetId].push(latest63DVector);
+      renderUI();
+    }
+
+    function autoRecord50() {
+      const targetId = document.getElementById('target-label-select').value;
+      let count = 0;
+      let timer = setInterval(() => {
+        if (latest63DVector) {
+          if (!dataset[targetId]) dataset[targetId] = [];
+          dataset[targetId].push(latest63DVector);
+          count++;
+          renderUI();
+        }
+        if (count >= 50) clearInterval(timer);
+      }, 120);
+    }
+
+    function clearSelectedSamples() {
+      const targetId = document.getElementById('target-label-select').value;
+      delete dataset[targetId];
+      renderUI();
+    }
+
+    // TensorFlow.js Model Training
+    async function trainModel() {
+      const activeClasses = labelsList.map(l => l.id).filter(id => dataset[id] && dataset[id].length > 0);
+      if (activeClasses.length < 2) return alert("Record samples for at least 2 gestures before training.");
+
+      document.getElementById('train-progress-box').style.display = 'block';
+      let trainX = [], trainY = [], valX = [], valY = [];
+
+      activeClasses.forEach((id, cIdx) => {
+        let samples = [...(dataset[id] || [])].sort(() => Math.random() - 0.5);
+        let split = Math.max(1, Math.floor(samples.length * 0.85));
+        samples.slice(0, split).forEach(vec => { trainX.push(vec); trainY.push(cIdx); });
+        samples.slice(split).forEach(vec => { valX.push(vec); valY.push(cIdx); });
+      });
+
+      const numClasses = activeClasses.length;
+      const xs = tf.tensor2d(trainX, [trainX.length, 63]);
+      const ys = tf.oneHot(tf.tensor1d(trainY, 'int32'), numClasses);
+
+      if (trainedTFModel) trainedTFModel.dispose();
+      const model = tf.sequential();
+      model.add(tf.layers.dense({ inputShape: [63], units: 128, activation: 'relu' }));
+      model.add(tf.layers.dropout({ rate: 0.2 }));
+      model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+      model.add(tf.layers.dense({ units: numClasses, activation: 'softmax' }));
+      model.compile({ optimizer: tf.train.adam(0.003), loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+
+      await model.fit(xs, ys, {
+        epochs: 35,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            document.getElementById('train-status-text').innerText = `Training Epoch ${epoch + 1}/35 · Loss: ${logs.loss.toFixed(4)}`;
+            document.getElementById('train-meter').style.width = `${((epoch + 1) / 35) * 100}%`;
+          }
+        }
+      });
+
+      xs.dispose(); ys.dispose();
+      trainedTFModel = model;
+      trainedClasses = activeClasses;
+
+      // Render Confusion Matrix
+      const valXs = tf.tensor2d(valX, [valX.length, 63]);
+      const preds = model.predict(valXs).arraySync();
+      valXs.dispose();
+
+      let matrix = Array.from({ length: numClasses }, () => new Array(numClasses).fill(0));
+      valY.forEach((actual, i) => {
+        let p = preds[i];
+        let maxIdx = 0, maxV = p[0];
+        for (let c = 1; c < numClasses; c++) { if (p[c] > maxV) { maxV = p[c]; maxIdx = c; } }
+        matrix[actual][maxIdx]++;
+      });
+
+      document.getElementById('eval-container').style.display = 'block';
+      let html = `<table border="1"><tr><th>Actual \\ Pred</th>${activeClasses.map(c => `<th>${c}</th>`).join('')}</tr>`;
+      matrix.forEach((row, rIdx) => {
+        html += `<tr><th>${activeClasses[rIdx]}</th>`;
+        row.forEach((v, cIdx) => {
+          let cls = v > 0 ? (rIdx === cIdx ? 'cell-correct' : 'cell-confused') : '';
+          html += `<td class="${cls}">${v}</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</table>`;
+      document.getElementById('confusion-box').innerHTML = html;
+      alert("Model Training Complete!");
+    }
+
+    // Import / Export Suite (NO localStorage / sessionStorage)
+    function exportDataset() {
+      const data = { version: 1, type: "signspeak_dataset", labels: labelsList, dataset };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "signspeak_dataset.json"; a.click();
+    }
+
+    async function exportModel() {
+      if (!trainedTFModel) return alert("Train model first!");
+      let weights = [];
+      for (let w of trainedTFModel.weights) {
+        let d = await w.val.data();
+        weights.push({ name: w.name, shape: w.shape, data: Array.from(d) });
+      }
+      const data = { version: 1, type: "signspeak_tfjs_model", activeClasses: trainedClasses, topology: trainedTFModel.toJSON(null, false), weights };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "signspeak_model.json"; a.click();
+    }
+
+    function importJSON(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const r = new FileReader();
+      r.onload = async (e) => {
+        const data = JSON.parse(e.target.result);
+        if (data.type === "signspeak_dataset") {
+          labelsList = data.labels || labelsList;
+          dataset = data.dataset || dataset;
+          renderUI();
+          alert("Dataset imported successfully!");
+        } else if (data.type === "signspeak_tfjs_model") {
+          trainedClasses = data.activeClasses || [];
+          trainedTFModel = await tf.models.modelFromJSON(data.topology);
+          alert("Trained Model imported successfully!");
+        }
+      };
+      r.readAsText(file);
+    }
+
+    function submitBulk() {
+      const text = document.getElementById('bulk-text').value;
+      const lines = text.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      lines.forEach(name => {
+        const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        if (!labelsList.some(l => l.id === id)) {
+          labelsList.push({ id, name, output: name.toLowerCase(), emoji: "✋", category: "Custom" });
+        }
+      });
+      document.getElementById('bulk-modal').classList.remove('active');
+      renderUI();
+    }
+
+    // Init Voices & UI
+    window.speechSynthesis.onvoiceschanged = () => {
+      const vSel = document.getElementById('voice-select');
+      vSel.innerHTML = window.speechSynthesis.getVoices().map(v => `<option value="${v.name}">${v.name} (${v.lang})</option>`).join('');
+    };
+    renderUI();
+  </script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+Do a full visual quality pass on the SignSpeak site to bring it to a professional, production-
+grade standard — comparable to a funded tech startup's site, not a student/hackathon demo. Keep
+the existing dark HUD aesthetic (#0B0C0E ink, #FF7A33 amber, #ECEDEF fog white, #4A5568 steel,
+Space Grotesk + JetBrains Mono) — this pass is about craft and polish, not a new direction.
+
+VISUAL POLISH
+
+1. Consistent spacing system
+   - Use a single spacing scale (e.g. 4px base: 8/16/24/32/48/64/96) across every page. Audit all
+     sections for inconsistent padding/margins and align them to this scale.
+   - Consistent max-width content container across all pages (e.g. 1200px), centered, with
+     matching side padding on every page.
+
+2. Imagery and graphics quality
+   - Replace any placeholder emoji or default icons in the gesture gallery with custom-drawn line-
+     icon illustrations of each hand gesture, in the same amber/steel skeleton style as the
+     entrance animation — not stock icons, not emoji, not generic Font Awesome-style glyphs.
+   - Add a subtle, real product screenshot or live-demo preview (the actual detection UI with
+     landmark overlay) on the homepage and Tools page — not abstract decoration — so visitors see
+     the real product, not just marketing copy.
+   - Any background textures/gradients should be restrained (the existing subtle radial amber
+     glow is good) — no stock photography, no generic AI-looking illustrations of "hands" or
+     "technology."
+
+3. Typography and hierarchy polish
+   - Audit every page for a clear, consistent type scale (one scale used everywhere, not different
+     sizes invented per page).
+   - Ensure sufficient contrast and line-height for all body text (accessibility + readability).
+   - Remove any remaining default-feeling patterns: no tracked-out ALL-CAPS labels except where
+     already established (like the HUD readouts), no generic card-with-shadow components.
+
+4. Component consistency
+   - Buttons, links, form fields, and cards should share one consistent style system across all
+     pages (Home, Tools, Gestures, Blog, About, Contact) — not each page inventing its own button
+     style.
+   - Add real hover/focus states to every interactive element, matching the amber accent language.
+   - Add a real, designed footer present on every page (not just the homepage) with nav links,
+     a short tagline, and social/contact links if applicable.
+
+5. Content credibility
+   - Replace any placeholder/lorem-ipsum text with real, specific copy about what SignSpeak does,
+     written in plain, confident language — no generic marketing filler ("revolutionize the way
+     you communicate").
+   - Add a real About page with a clear explanation of the technology (MediaPipe, TensorFlow.js,
+     HaGRIDv2 dataset) and, if applicable, who's building it.
+   - Add a visible favicon and app icon set (including for iOS/Android home-screen use) matching
+     the amber hand-skeleton mark already used in the nav logo.
+
+SEO / GOOGLE PLACEMENT REQUIREMENTS
+
+- Every page must have a unique, descriptive <title> and meta description (no duplicates across
+  pages).
+- Add Open Graph and Twitter Card meta tags with a real preview image for every page, not just the
+  homepage.
+- Add JSON-LD structured data (schema.org WebApplication/SoftwareApplication type) on the homepage,
+  and Article type on any blog posts.
+- Generate and include sitemap.xml and robots.txt, and confirm all real pages are listed and
+  indexable (no accidental noindex tags left from earlier drafts).
+- Ensure all images have descriptive alt text.
+- Ensure heading hierarchy is correct site-wide: exactly one <h1> per page, logically nested
+  <h2>/<h3> below it.
+- Run a Lighthouse audit (Performance, Accessibility, Best Practices, SEO) on every page and fix
+  anything scoring below 90 — report the before/after scores.
+- Make sure the site works correctly and looks polished on mobile widths (375px) and tablet widths
+  (768px), not just desktop — test and fix any layout breaks.
+
+Treat this as a final QA + polish pass before launch — go through every page individually and fix
+anything that looks unfinished, inconsistent, or default-feeling.
